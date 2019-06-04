@@ -1,0 +1,11 @@
+| dbxquery 
+connection="ngp_connection" 
+timeout=1800 query="
+SELECT   count(a.guid)
+FROM     master.flowstart a LEFT OUTER JOIN master.flowend b ON a.guid=b.guid
+WHERE    a.routername LIKE 'sip%' AND 
+         a.analyticstime >= (extract ('epoch' from timestamp '2019-05-21') * 1000)::bigint AND
+         a.analyticstime  < (extract ('epoch' from timestamp '2019-05-28') * 1000)::bigint AND
+         b.flowtime IS NULL
+" shortnames=t
+| table *
