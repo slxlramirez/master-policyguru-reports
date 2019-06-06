@@ -1,0 +1,21 @@
+| dbxquery 
+connection="ngp_connection" 
+timeout=1800 query="
+SELECT   to_timestamp(a.flowtime/1000) at time zone 'CST6CDT' as flowtime_ts_cst6cdt,
+         to_timestamp(a.flowtime/1000) at time zone 'GMT' as flowtime_ts_gmt,
+         a.sourcenumber,
+         a.sourceregion,
+         a.destinationnumber,
+         a.destinationregion,
+         CASE a.direction
+          WHEN 1 THEN 'INBOUND'
+          ELSE 'OUTBOUND'
+         END as direction,
+         a.routername 
+FROM     master.flowstart a LEFT OUTER JOIN master.flowend b ON a.guid=b.guid
+WHERE    a.routername LIKE 'sip%' AND 
+         a.analyticstime >= (extract (epoch from now() - INTERVAL '7 DAY') * 1000)::bigint AND
+         a.analyticstime  < (extract (epoch from now() - INTERVAL '0 MINUTE') * 1000)::bigint AND
+         b.flowtime IS NULL
+" shortnames=t
+| table *
