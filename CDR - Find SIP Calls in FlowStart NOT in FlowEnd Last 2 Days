@@ -21,7 +21,7 @@ SELECT   a.guid,
 FROM     master.flowstart a LEFT OUTER JOIN master.flowend b ON a.guid=b.guid
 WHERE    a.routername LIKE 'sip%' AND 
          a.analyticstime >= (extract (epoch from now() - INTERVAL '2 DAY') * 1000)::bigint AND 
-         a.analyticstime  < (extract (epoch from now() - INTERVAL '0 DAY') * 1000)::bigint AND
+         a.analyticstime  < (extract (epoch from now() - INTERVAL '1 DAY') * 1000)::bigint AND
          b.flowtime IS NULL
 " shortnames=t
 | table guid sourcenumber sourceregion destinationnumber destinationregion direction calldispositions starttime endtime current_duration_minutes
