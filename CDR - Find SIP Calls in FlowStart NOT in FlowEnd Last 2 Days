@@ -1,9 +1,6 @@
 | dbxquery 
 connection="ngp_connection" 
 timeout=1800 query="
-SELECT d.*, REPLACE((c.meta::json->'callDispositions')::varchar,'\"','') as calldispositions
-FROM
-(
 SELECT   a.guid,
          a.sourcenumber,
          a.sourceregion,
@@ -22,30 +19,10 @@ SELECT   a.guid,
             ELSE ROUND((b.flowtime-a.flowtime)/1000/60::numeric,1)
          END as current_duration_minutes
 FROM     master.flowstart a LEFT OUTER JOIN master.flowend b ON a.guid=b.guid
-WHERE       -- SIP CALLS ONLY
-         a.routername LIKE 'sip%' AND 
-           -- THAT STARTED AT LEAST 2 DAYS AGO
+WHERE    a.routername LIKE 'sip%' AND 
          a.analyticstime >= (extract (epoch from now() - INTERVAL '2 DAY') * 1000)::bigint AND 
-         a.analyticstime  < (extract (epoch from now() - INTERVAL '0 MINUTE') * 1000)::bigint AND
-           -- AND ARE NOT TERMINATED
-         a.guid NOT IN 
-         (
-         SELECT guid 
-         FROM   master.policyflowdetails s
-         WHERE  s.analyticstime >= (extract (epoch from now() - INTERVAL '2 DAY') * 1000)::bigint AND
-                s.policydisposition = 2
-         ) AND
-           -- AND ARE NOT IN THE WHITE OR GRAY LISTS
-         a.sourcenumber NOT IN
-         (
-         SELECT distinct a.value
-         FROM   master.listing a JOIN master.listinggroup b ON a.listinggroupid=b.id
-         WHERE  b.name IN ('Whitelist','Graylist')
-         ) AND
-         b.flowtime IS NULL AND
-            -- AND CALL HAS NOT ENDED
-         ROUND(((EXTRACT(EPOCH FROM now())*1000-a.flowtime)/1000/60::numeric)::numeric,1) > 600
-) d LEFT OUTER JOIN master.flowconnect c ON d.guid=c.guid
+         a.analyticstime  < (extract (epoch from now() - INTERVAL '0 DAY') * 1000)::bigint AND
+         b.flowtime IS NULL
 " shortnames=t
 | table guid sourcenumber sourceregion destinationnumber destinationregion direction calldispositions starttime endtime current_duration_minutes
 | sort -current_duration_minutes
