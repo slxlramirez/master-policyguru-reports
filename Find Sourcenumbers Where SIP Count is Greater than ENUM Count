@@ -1,0 +1,32 @@
+| dbxquery 
+connection="ngp_connection" 
+timeout=1800 query="
+SELECT *
+FROM
+(
+SELECT s.sourcenumber,
+       s.calls as enum_calls,
+       t.calls as sip_calls,
+       s.calls-t.calls as enum_sip_diff
+FROM
+(
+SELECT   a.sourcenumber,count (guid) as calls
+FROM     master.flowstart a
+WHERE    a.routername LIKE 'enum%' AND 
+         a.analyticstime >= (extract (epoch from now() - INTERVAL '2 DAY') * 1000)::bigint AND 
+         a.analyticstime  < (extract (epoch from now() - INTERVAL '1 DAY') * 1000)::bigint 
+GROUP BY sourcenumber
+ORDER BY count (guid) DESC
+) s INNER JOIN
+(
+SELECT   a.sourcenumber,count (guid) as calls
+FROM     master.flowstart a
+WHERE    a.routername LIKE 'sip%' AND 
+         a.analyticstime >= (extract (epoch from now() - INTERVAL '2 DAY') * 1000)::bigint AND 
+         a.analyticstime  < (extract (epoch from now() - INTERVAL '1 DAY') * 1000)::bigint 
+GROUP BY sourcenumber
+ORDER BY count (guid) DESC
+) t ON s.sourcenumber=t.sourcenumber
+) x WHERE enum_sip_diff < 0
+" shortnames=t
+| table sourcenumber enum_calls sip_calls enum_sip_diff
