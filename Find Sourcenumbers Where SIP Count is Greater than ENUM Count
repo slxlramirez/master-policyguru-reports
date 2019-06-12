@@ -8,7 +8,8 @@ SELECT to_char(current_date - INTERVAL '2 DAY','YYYY-MM-DD') as date,
        s.sourcenumber,
        s.calls as enum_calls,
        t.calls as sip_calls,
-       s.calls-t.calls as enum_sip_diff
+       s.calls-t.calls as enum_sip_diff,
+       ROUND((t.calls::numeric-s.calls)/t.calls,2) as enum_sip_diff_perc
 FROM
 (
 SELECT   a.sourcenumber,count (guid) as calls
@@ -30,4 +31,4 @@ ORDER BY count (guid) DESC
 ) t ON s.sourcenumber=t.sourcenumber
 ) x WHERE enum_sip_diff < 0
 " shortnames=t
-| table date sourcenumber enum_calls sip_calls enum_sip_diff
+| table date sourcenumber enum_calls sip_calls enum_sip_diff enum_sip_diff_perc
