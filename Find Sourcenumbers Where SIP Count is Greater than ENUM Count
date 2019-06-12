@@ -15,6 +15,7 @@ FROM
 SELECT   a.sourcenumber,count (guid) as calls
 FROM     master.flowstart a
 WHERE    a.routername LIKE 'enum%' AND 
+         a.direction = 1 AND
          a.analyticstime >= (extract (epoch from current_date - INTERVAL '2 DAY') * 1000)::bigint AND 
          a.analyticstime  < (extract (epoch from current_date - INTERVAL '1 DAY') * 1000)::bigint 
 GROUP BY sourcenumber
@@ -24,6 +25,7 @@ ORDER BY count (guid) DESC
 SELECT   a.sourcenumber,count (guid) as calls
 FROM     master.flowstart a
 WHERE    a.routername LIKE 'sip%' AND 
+         a.direction = 1 AND
          a.analyticstime >= (extract (epoch from current_date - INTERVAL '2 DAY') * 1000)::bigint AND 
          a.analyticstime  < (extract (epoch from current_date - INTERVAL '1 DAY') * 1000)::bigint 
 GROUP BY sourcenumber
