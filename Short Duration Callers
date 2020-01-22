@@ -1,0 +1,50 @@
+| dbxquery 
+maxrows=500000
+connection=mssv_db
+query="
+SELECT x.sourcenumber,
+       x.calls,
+       x.spread,
+       x.total_duration_seconds,
+       x.avg_duration_seconds,
+       y.calls as enum_calls
+FROM
+(
+SELECT b.*
+FROM
+(
+SELECT   
+         a.sourcenumber,
+         count(a.guid) as calls,
+         count(a.destinationnumber) as spread,
+         ROUND(sum(a.duration/1000),1) as total_duration_seconds,
+         ROUND(avg(a.duration/1000),1) as avg_duration_seconds
+FROM     pg_fs_fe_cdr a
+WHERE    datekey >= current_date - interval '7 days' AND 
+         datekey  < current_date AND 
+         direction = 'INBOUND' AND
+         calldispositions = 'ANSWERED' AND
+         sourcenumber NOT IN 
+         (
+         SELECT  distinct value_parsed
+         FROM    pg_directory
+         WHERE   list_name LIKE '%HCL%'
+         ) 
+GROUP BY sourcenumber 
+ORDER BY sourcenumber
+) b
+WHERE  avg_duration_seconds < 20 AND calls >= 10 AND spread > 5 AND LENGTH(sourcenumber) = 12
+) x LEFT OUTER JOIN
+(
+SELECT   a.sourcenumber,
+         count(a.guid) as calls
+FROM     pg_fs_pfd_cdr a
+WHERE    datekey >= current_date - interval '7 days' AND 
+         datekey  < current_date AND 
+         direction = 'INBOUND'
+GROUP BY sourcenumber 
+ORDER BY sourcenumber
+) y ON x.sourcenumber=y.sourcenumber
+"
+| table sourcenumber calls enum_calls avg_duration_seconds spread 
+| sort -calls -avg_duration_seconds -spread
