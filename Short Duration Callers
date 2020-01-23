@@ -45,6 +45,7 @@ WHERE    datekey >= current_date - interval '7 days' AND
 GROUP BY sourcenumber 
 ORDER BY sourcenumber
 ) y ON x.sourcenumber=y.sourcenumber
+WHERE y.calls IS NOT NULL
 "
 | table sourcenumber calls enum_calls avg_duration_seconds spread 
 | sort -calls -avg_duration_seconds -spread
