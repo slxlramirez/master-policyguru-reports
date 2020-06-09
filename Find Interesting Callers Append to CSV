@@ -1,0 +1,27 @@
+| dbxquery
+connection="ngp_connection"
+timeout=1800
+query="
+SELECT  *
+FROM
+(
+SELECT   to_char(current_date - interval '1 day','YYYY-MM-DD') as datekey,
+         a.sourcenumber,
+         count(a.guid) as calls,
+         count(distinct destinationnumber) as spread,
+         sum(duration/1000) as sum_duration,
+         avg(duration/1000) as avg_duration
+FROM     master.flowstart a LEFT OUTER JOIN master.flowend b ON a.guid=b.guid
+WHERE    a.routername LIKE 'sip%' AND
+         a.direction = 1 AND
+         a.analyticstime >= extract('epoch' from (current_date - interval '1 day')::timestamp) * 1000 AND
+         a.analyticstime  < extract('epoch' from current_date::timestamp) * 1000
+GROUP BY sourcenumber
+) foo
+WHERE calls > 2 AND
+      spread > 2 AND
+      avg_duration < 30
+" shortnames=t
+| table datekey sourcenumber calls spread sum_duration avg_duration
+| sort avg_duration
+| outputlookup append=true interesting_sip_sources_inbound_daily.csv
