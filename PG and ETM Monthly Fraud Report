@@ -1,0 +1,50 @@
+| dbxquery 
+connection="mssv_db" 
+timeout=1800 query="
+SELECT sourcenumber,
+       COUNT(guid) as calls
+FROM   pg_fs_pfd_cdr a
+WHERE  datekey >= date_trunc('month',current_date) - interval '1 month' AND
+       datekey  < date_trunc('month',current_date) AND
+       direction = 'INBOUND' AND
+       a.sourcenumber IN
+       (
+       SELECT  CASE 
+         WHEN LEFT(a.value_original,1) =  '^' THEN RIGHT(a.value_original,12)
+         ELSE a.value_original
+        END as sourcenumber
+       FROM    pg_directory a
+       WHERE   a.list_name = 'TEMP_Fraud_Report_List_New'
+       )
+GROUP BY sourcenumber
+ORDER BY COUNT(guid) DESC
+" shortnames=t
+| table sourcenumber calls
+| append
+[
+| dbxquery 
+timeout=1800
+maxrows=350000
+connection=ETM-10.14.240.43
+query="
+SELECT      '+'||REPLACE(REPLACE(REPLACE(REPLACE(source,'[',''),']',''),'(',''),')','') as sourcenumber,
+            COUNT(call_oid) as calls
+FROM        call c
+WHERE       start_time >= add_months(trunc(sysdate,'mm'),-1) AND
+            start_time  < trunc(sysdate,'mm') AND
+            direction = 0 AND
+            source IN 
+            (
+            SELECT      CONCAT(CONCAT(CONCAT(CONCAT(concat(concat('[',dl.country_code),']'),'('),dl.area_code),')'),dl.local_num) as PHONE_NUMBER
+            FROM        IMPORT_SET imp INNER JOIN DIR_LISTING dl ON imp.OID=dl.IMPORT_SET_OID
+            WHERE       imp.STATE = 'A' AND
+                        imp.NAME = 'SLC Monthly Fraud Report'
+            )
+GROUP BY '+'||REPLACE(REPLACE(REPLACE(REPLACE(source,'[',''),']',''),'(',''),')','')
+" shortnames=t
+| table SOURCENUMBER CALLS
+| rename SOURCENUMBER as sourcenumber CALLS as calls
+]
+| stats sum(calls) as total_calls by sourcenumber
+| table sourcenumber total_calls
+| sort -total_calls
