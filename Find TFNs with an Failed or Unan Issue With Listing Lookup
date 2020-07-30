@@ -1,0 +1,65 @@
+| dbxquery 
+maxrows=250000
+connection="ngp_connection" 
+timeout=1800 query="
+SELECT destinationnumber, uf_calls, unan_or_failed_calls,  total_calls, perc_total, name
+FROM
+  (
+    SELECT * FROM
+    (
+      SELECT   foo.destinationnumber,
+         foo.uf_calls,
+         foo.total_uf_calls as unan_or_failed_calls,
+         bar.calls as total_calls,
+         ROUND((foo.total_uf_calls::numeric/bar.calls)*100,1) as perc_total
+      FROM
+      (
+        SELECT   destinationnumber,
+         string_agg(joinval, ', ') as uf_calls,
+         SUM(calls) as total_uf_calls
+        FROM
+        (
+          SELECT   destinationnumber,
+           calltype||' ('||calls||')' as joinval,
+           calltype,
+           calls
+          FROM
+            (
+            SELECT   destinationnumber,
+              REPLACE((b.meta::json->'callDispositions')::varchar,'\"','') as calltype,
+              COUNT(a.guid) as calls
+            FROM     master.flowstart a INNER JOIN master.flowend b ON a.guid=b.guid
+            WHERE    a.routername LIKE 'sip%' AND
+              a.direction = 1 AND
+              a.analyticstime >= (extract ('epoch' from (current_date - interval '1 day')::timestamp) * 1000)::bigint AND
+              a.analyticstime  < (extract ('epoch' from current_date::timestamp) * 1000)::bigint AND
+             LEFT(destinationnumber,5) IN ('+1800','+1855','+1866','+1877','+1888') AND
+             REPLACE((b.meta::json->'callDispositions')::varchar,'\"','') IN ('FAILED','UNANSWERED')
+            GROUP BY destinationnumber, REPLACE((b.meta::json->'callDispositions')::varchar,'\"','')
+           ) this
+      ) that 
+      GROUP BY destinationnumber
+   ) foo LEFT OUTER JOIN
+   (
+   SELECT   destinationnumber,
+         COUNT(a.guid) as calls,
+         COUNT(distinct sourcenumber) as distinct_sources
+   FROM     master.flowstart a INNER JOIN master.flowend b ON a.guid=b.guid
+   WHERE    a.routername LIKE 'sip%' AND
+         a.direction = 1 AND
+         a.analyticstime >= (extract ('epoch' from (current_date - interval '1 day')::timestamp) * 1000)::bigint AND
+         a.analyticstime  < (extract ('epoch' from current_date::timestamp) * 1000)::bigint AND
+         LEFT(destinationnumber,5) IN ('+1800','+1855','+1866','+1877','+1888')
+   GROUP BY destinationnumber
+   ) bar ON foo.destinationnumber=bar.destinationnumber
+  ) result 
+  WHERE perc_total = 100 AND total_calls >= 100
+) x LEFT OUTER JOIN
+(
+SELECT 	b.name, a.value
+FROM 	MASTER.LISTING a INNER JOIN master.listinggroup b ON a.listinggroupid=b.id
+WHERE   LENGTH(a.value)=12
+) y ON x.destinationnumber=y.value
+" shortnames=t
+| table destinationnumber name uf_calls unan_or_failed_calls total_calls perc_total
+| sort -total_calls
