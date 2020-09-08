@@ -1,0 +1,28 @@
+| dbxquery 
+connection="mssv_db" 
+timeout=1800 query="
+SELECT s.value_original as sourcenumber,
+       COALESCE(t.calls,0) as calls
+FROM
+(
+SELECT value_original
+       FROM   pg_directory
+       WHERE  list_name='Blacklist_Test'
+) s LEFT OUTER JOIN
+(
+SELECT sourcenumber, 
+       COUNT(guid) as calls
+FROM   pg_fs_pfd_cdr a
+WHERE  a.direction = 'INBOUND' AND
+       datekey >= CURRENT_DATE - INTERVAL '90 DAYS' AND
+       datekey  < CURRENT_DATE AND
+       sourcenumber IN
+       (
+       SELECT value_original
+       FROM   pg_directory
+       WHERE  list_name='Blacklist_Test'
+       )
+GROUP BY sourcenumber
+) t ON s.value_original=t.sourcenumber
+" shortnames=t
+| table sourcenumber calls
