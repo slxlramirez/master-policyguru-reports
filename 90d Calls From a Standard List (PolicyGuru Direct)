@@ -1,0 +1,31 @@
+| dbxquery 
+maxrows=250000
+connection="ngp_connection" 
+timeout=1800 query="
+SELECT  s.value as sourcenumber,
+        COALESCE(t.calls,0) as calls
+FROM
+(
+SELECT  a.value
+FROM    master.listing a INNER JOIN master.listinggroup b ON a.listinggroupid=b.id
+WHERE   b.name = 'Blacklist_Test'
+) s LEFT OUTER JOIN
+(
+SELECT   sourcenumber,
+         COUNT(guid) as calls
+FROM     master.flowstart a 
+WHERE    a.routername LIKE 'enum%' AND
+         a.direction = '1' AND
+         a.analyticstime >= (extract ('epoch' from CURRENT_DATE - INTERVAL '90 DAYS') * 1000)::bigint AND
+         a.analyticstime  < (extract ('epoch' from CURRENT_DATE) * 1000)::bigint AND
+         a.sourcenumber IN 
+         (
+         SELECT  a.value
+         FROM    master.listing a INNER JOIN master.listinggroup b ON a.listinggroupid=b.id
+         WHERE   b.name = 'Blacklist_Test'
+         )
+GROUP BY sourcenumber
+) t ON s.value=t.sourcenumber
+" shortnames=t
+| table sourcenumber calls
+| sort -calls
