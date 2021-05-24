@@ -1,0 +1,2 @@
+| makeresults 
+| eval result="customer=prudential;alert=splunkemailtest"
