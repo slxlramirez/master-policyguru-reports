@@ -1,0 +1,16 @@
+| dbxquery 
+connection="ngp_connection" 
+timeout=1800 
+query="
+SELECT TO_CHAR(to_timestamp(a.flowtime/1000),'YYYY-MM-DD hh24:mi:ss') as flowtime_ts,
+       count(a.guid) as calls
+FROM   master.flowstart a
+WHERE  a.direction = 1 AND
+       a.routername LIKE 'enum%' AND
+       a.analyticstime >= (extract ('epoch' from timestamp '2021-06-01') * 1000)::bigint AND
+       a.analyticstime  < (extract ('epoch' from timestamp '2021-06-07') * 1000)::bigint
+GROUP BY TO_CHAR(to_timestamp(a.flowtime/1000),'YYYY-MM-DD hh24:mi:ss')
+ORDER BY count(guid) DESC
+LIMIT 10
+" shortnames=t
+| table flowtime_ts calls
