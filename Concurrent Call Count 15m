@@ -1,6 +1,6 @@
 | dbxquery 
 connection="ngp_connection" 
-timeout=1800 query="
+timeout=900 query="
 SELECT   'prudential' as customer,
          to_char(now(),'YYYY-MM-DD hh24:mi:ss') as ts,
          COUNT(a.guid) as calls
