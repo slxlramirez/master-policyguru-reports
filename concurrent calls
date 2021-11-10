@@ -1,0 +1,24 @@
+| dbxquery 
+connection="ngp_connection" 
+timeout=900 query="
+SELECT   'prudential' as customer,
+         to_char(now(),'YYYY-MM-DD hh24:mi:ss') as ts,
+         count(foo.guid) as calls
+FROM
+(
+SELECT   guid
+FROM     master.flowconnect a
+WHERE    a.analyticstime >= (extract (epoch from now() - INTERVAL '30 MINUTE') * 1000)::bigint AND
+         a.analyticstime  < (extract (epoch from now()                    ) * 1000)::bigint 
+) foo LEFT OUTER JOIN
+(
+SELECT   guid,
+         to_char(now(),'YYYY-MM-DD hh24:mi:ss') as ts
+FROM     master.flowend fe
+WHERE    fe.analyticstime >= (extract (epoch from now() - INTERVAL '30 MINUTE') * 1000)::bigint AND
+         fe.analyticstime  < (extract (epoch from now()                    ) * 1000)::bigint 
+) bar ON foo.guid=bar.guid
+WHERE bar.ts IS NULL
+" shortnames=t
+| table customer ts calls
+| outputlookup cc_15m.csv append=t
