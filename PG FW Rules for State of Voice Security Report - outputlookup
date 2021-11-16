@@ -50,4 +50,4 @@ GROUP BY to_char(datekey,'YYYY-MM')
 | rename customer as CUSTOMER thedate as THEDATE rule_comments as RULE_COMMENTS last_name as LAST_NAME disposition as DISPOSITION calls as CALLS
 ]
 | sort THEDATE
-| outputlookup fw_rules_terminated_365d_prudential_pg.csv
+| outputlookup fw_rules_terminated_365d_pg.csv
