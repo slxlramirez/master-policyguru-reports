@@ -1,0 +1,53 @@
+| dbxquery 
+connection="mssv_db" 
+timeout=1800 
+query="
+SELECT   'Prudential' as customer,
+         to_char(datekey,'YYYY-MM') as THEDATE,
+         sourcenumber,
+         rule as rule_comments,
+         'TERMINATED' as DISPOSITION,
+         COUNT(a.guid) as CALLS
+FROM     pg_fs_pfd_cdr a 
+WHERE    a.direction = 'INBOUND' AND
+         a.policydisposition = 'TERMINATED' AND
+         datekey >= date_trunc('day', current_date) - interval '365 day'
+GROUP BY to_char(datekey,'YYYY-MM'), sourcenumber, rule
+ORDER BY thedate
+" shortnames=t
+| table *
+| join type=left sourcenumber
+[
+| inputlookup securelogix_nhcl.csv
+| eval number="+".'Country Code'.'Area Code'.'Local Number'
+| rename "Last Name" as last_name number as sourcenumber
+| table last_name sourcenumber
+]
+| fillnull value="UNLISTED" last_name
+| stats SUM(calls) as calls by customer disposition last_name rule_comments thedate
+| table calls customer disposition last_name rule_comments thedate
+| rename customer as CUSTOMER thedate as THEDATE rule_comments as RULE_COMMENTS last_name as LAST_NAME disposition as DISPOSITION calls as CALLS
+| sort THEDATE
+| append
+[
+| dbxquery 
+connection="mssv_db" 
+timeout=1800 
+query="
+SELECT   'Prudential' as customer,
+         to_char(datekey,'YYYY-MM') as THEDATE,
+         'NOT APPLICABLE' as last_name,
+         'INBOUND ALLOW (NOT A RULE)' as rule_comments,
+         'ALLOW' as DISPOSITION,
+         COUNT(a.guid) as CALLS
+FROM     pg_fs_pfd_cdr a 
+WHERE    a.direction = 'INBOUND' AND
+         a.policydisposition = 'ALLOWED' AND
+         datekey >= date_trunc('day', current_date) - interval '365 day'
+GROUP BY to_char(datekey,'YYYY-MM')
+" shortnames=t
+| table calls customer disposition last_name rule_comments thedate
+| rename customer as CUSTOMER thedate as THEDATE rule_comments as RULE_COMMENTS last_name as LAST_NAME disposition as DISPOSITION calls as CALLS
+]
+| sort THEDATE
+| outputlookup fw_rules_terminated_365d_prudential_pg.csv
