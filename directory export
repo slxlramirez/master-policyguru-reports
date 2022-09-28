@@ -1,0 +1,11 @@
+| dbxquery 
+connection="ngp_connection" 
+timeout=1800 
+maxrows=500000
+query="
+SELECT  b.name, a.value
+FROM    master.listing a INNER JOIN master.listinggroup b ON a.listinggroupid=b.id
+WHERE   b.name NOT LIKE '%exclude text%' AND 
+        b.name NOT LIKE '%more exclude text%' 
+" shortnames=t
+| sort 0 name
