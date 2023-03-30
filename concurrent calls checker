@@ -1,0 +1,36 @@
+| dbxquery 
+connection=ngp_connection
+query="
+SELECT 'concurrent_calls' as topic,
+        'flowconnect_calls_with_no_flowend' as category,
+        COUNT(*) as calls
+FROM   master.flowconnect a LEFT OUTER JOIN master.flowend b ON a.guid=b.guid
+WHERE  
+       a.analyticstime >= (extract (epoch from now() - INTERVAL '1 HOUR') * 1000)::bigint AND
+       b.guid IS NULL
+UNION ALL
+SELECT 'concurrent_calls' as topic,
+       'flowstart_calls_with_no_flowend' as category,
+        COUNT(*) as calls
+FROM   master.flowstart a LEFT OUTER JOIN master.flowend b ON a.guid=b.guid
+WHERE  
+       a.routername LIKE 'sip%' AND
+       a.analyticstime >= (extract (epoch from now() - INTERVAL '1 HOUR') * 1000)::bigint AND
+       b.guid IS NULL
+UNION ALL
+SELECT 'concurrent_calls' as topic,
+       'max_cps' as category,
+       calls
+FROM
+(
+SELECT TO_CHAR(to_timestamp(a.flowtime/1000),'YYYY-MM-DD hh24:mi:ss') as flowtime_ts,
+       count(a.guid) as calls
+FROM   master.flowstart a
+WHERE  a.routername LIKE 'sip%' AND
+       a.analyticstime >= (extract (epoch from now() - INTERVAL '1 HOUR') * 1000)::bigint
+GROUP BY TO_CHAR(to_timestamp(a.flowtime/1000),'YYYY-MM-DD hh24:mi:ss')
+ORDER BY count(guid) DESC
+LIMIT 1
+) foo
+" shortnames=t
+| table topic category calls
