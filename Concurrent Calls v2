@@ -1,0 +1,17 @@
+| dbxquery
+connection="ngp_connection"
+timeout=900 query="
+SELECT   'aig' as customer,
+         to_char(now(),'YYYY-MM-DD hh24:mi:ss') as ts,
+         COUNT(guid) as calls
+FROM     master.flowconnect a
+         WHERE    a.analyticstime >= (extract (epoch from now() - INTERVAL '60 MINUTE') * 1000)::bigint AND
+                  a.analyticstime  < (extract (epoch from now()                    ) * 1000)::bigint AND
+         guid NOT IN (
+         SELECT   guid
+         FROM     master.flowend fe
+         WHERE    fe.analyticstime >= (extract (epoch from now() - INTERVAL '60 MINUTE') * 1000)::bigint AND
+                  fe.analyticstime  < (extract (epoch from now()                    ) * 1000)::bigint
+         )
+" shortnames=t
+| table customer ts calls
