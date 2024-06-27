@@ -1,0 +1,45 @@
+| dbxquery
+connection="ngp_connection"
+timeout=900 query="
+SELECT 'max_cps_enum' as category,
+       calls
+FROM
+(
+SELECT TO_CHAR(to_timestamp(a.flowtime/1000),'YYYY-MM-DD hh24:mi:ss') as flowtime_ts,
+       count(a.guid) as calls
+FROM   master.flowstart a
+WHERE  a.routername LIKE 'enum%' AND
+       a.analyticstime >= (extract (epoch from now() - INTERVAL '60 MINUTE') * 1000)::bigint
+GROUP BY TO_CHAR(to_timestamp(a.flowtime/1000),'YYYY-MM-DD hh24:mi:ss')
+ORDER BY count(guid) DESC
+LIMIT 1
+) bar
+UNION ALL
+SELECT 'max_cps_sip' as category,
+       calls
+FROM
+(
+SELECT TO_CHAR(to_timestamp(a.flowtime/1000),'YYYY-MM-DD hh24:mi:ss') as flowtime_ts,
+       count(a.guid) as calls
+FROM   master.flowstart a
+WHERE  a.routername LIKE 'sip%' AND
+       a.analyticstime >= (extract (epoch from now() - INTERVAL '60 MINUTE') * 1000)::bigint
+GROUP BY TO_CHAR(to_timestamp(a.flowtime/1000),'YYYY-MM-DD hh24:mi:ss')
+ORDER BY count(guid) DESC
+LIMIT 1
+) foo
+UNION ALL
+SELECT   'flowconnect_calls_with_no_flowend' as category,
+         COUNT(guid) as calls
+FROM     master.flowconnect a
+         WHERE    a.analyticstime >= (extract (epoch from now() - INTERVAL '60 MINUTE') * 1000)::bigint AND
+                  a.analyticstime  < (extract (epoch from now()                    ) * 1000)::bigint AND
+         guid NOT IN (
+         SELECT   guid
+         FROM     master.flowend fe
+         WHERE    fe.analyticstime >= (extract (epoch from now() - INTERVAL '60 MINUTE') * 1000)::bigint AND
+                  fe.analyticstime  < (extract (epoch from now()                    ) * 1000)::bigint
+         )
+"
+| sistats sum(calls) by category
+| table category psrsvd_sm_calls
